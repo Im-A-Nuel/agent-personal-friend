@@ -1,0 +1,37 @@
+# Credentials & secrets
+.env
+credentials.json
+token.json
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Binary output
+asisten-bot
+asisten-bot.exe
+
+# Whisper temp files
+*.ogg
+*.wav
+*.mp3
+*.mp4
+*.txt.bak
+
+# Go build cache
+/vendor/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
