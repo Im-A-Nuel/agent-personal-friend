@@ -42,8 +42,12 @@ func main() {
 	if cfg.UseGoogleCal {
 		cal, err = calendar.Authorize("credentials.json", "token.json")
 		if err != nil {
-			log.Printf("calendar: disabled (%v)", err)
+			log.Printf("⚠️  calendar: GAGAL aktif (%v) — reminder tetap jalan tanpa Google Calendar", err)
+		} else {
+			log.Printf("✅ calendar: AKTIF — event akan disinkron ke Google Calendar")
 		}
+	} else {
+		log.Printf("ℹ️  calendar: NONAKTIF (USE_GOOGLE_CALENDAR != true)")
 	}
 
 	parser := nlu.New(loc, cfg.OllamaBaseURL, cfg.OllamaModel)
