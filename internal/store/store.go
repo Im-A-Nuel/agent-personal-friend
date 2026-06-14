@@ -121,6 +121,26 @@ func (s *Store) GetDueReminders(now time.Time) ([]Reminder, error) {
 	return scanRemindersWithDesc(rows)
 }
 
+// GetRange returns unnotified reminders within [start, end) for a chat.
+func (s *Store) GetRange(chatID string, start, end time.Time) ([]Reminder, error) {
+	rows, err := s.db.Query(
+		`SELECT id, chat_id, title, COALESCE(description,''), remind_at, COALESCE(recurring,''), COALESCE(calendar_id,'')
+		 FROM reminders WHERE chat_id=? AND notified=0
+		   AND remind_at >= ? AND remind_at < ? ORDER BY remind_at ASC`,
+		chatID, start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRemindersWithDesc(rows)
+}
+
+// FindConflicts returns reminders whose remind_at is within window of t (excluding exact none).
+func (s *Store) FindConflicts(chatID string, t time.Time, window time.Duration) ([]Reminder, error) {
+	return s.GetRange(chatID, t.Add(-window), t.Add(window))
+}
+
 func (s *Store) MarkNotified(id int64) error {
 	_, err := s.db.Exec(`UPDATE reminders SET notified=1 WHERE id=?`, id)
 	return err

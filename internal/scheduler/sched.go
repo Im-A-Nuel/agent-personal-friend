@@ -34,6 +34,7 @@ func New(s *store.Store, bot *tgbotapi.BotAPI, loc *time.Location, chatID int64)
 func (s *Scheduler) Start() {
 	s.c.AddFunc("* * * * *", s.tick)
 	s.c.AddFunc("0 7 * * *", s.sendMorningSummary)
+	s.c.AddFunc("0 19 * * 0", s.sendWeeklyPreview) // Minggu 19:00 → preview minggu depan
 	s.c.Start()
 }
 
@@ -116,6 +117,44 @@ func (s *Scheduler) sendMorningSummary() {
 	msg.ParseMode = tgbotapi.ModeMarkdown
 	if _, err := s.bot.Send(msg); err != nil {
 		log.Printf("scheduler: send morning summary: %v", err)
+	}
+}
+
+func (s *Scheduler) sendWeeklyPreview() {
+	now := time.Now().In(s.loc)
+	chatIDStr := fmt.Sprintf("%d", s.chatID)
+
+	start := now
+	end := now.AddDate(0, 0, 7)
+	reminders, err := s.store.GetRange(chatIDStr, start, end)
+	if err != nil {
+		log.Printf("scheduler: weekly preview: %v", err)
+		return
+	}
+
+	if len(reminders) == 0 {
+		s.send(s.chatID, "📆 Minggu depan belum ada jadwal tersimpan. Santai dulu! 😎")
+		return
+	}
+
+	var sb strings.Builder
+	sb.WriteString("📆 *Preview Jadwal Minggu Depan:*\n\n")
+	lastDay := ""
+	for _, r := range reminders {
+		day := r.RemindAt.In(s.loc).Format("Monday, 02 January")
+		if day != lastDay {
+			sb.WriteString(fmt.Sprintf("\n📅 *%s*\n", day))
+			lastDay = day
+		}
+		jam := r.RemindAt.In(s.loc).Format("15:04")
+		sb.WriteString(fmt.Sprintf("  🕐 %s — %s\n", jam, escapeMarkdown(r.Title)))
+	}
+	sb.WriteString("\nSiapkan dirimu! 💪")
+
+	msg := tgbotapi.NewMessage(s.chatID, sb.String())
+	msg.ParseMode = tgbotapi.ModeMarkdown
+	if _, err := s.bot.Send(msg); err != nil {
+		log.Printf("scheduler: send weekly preview: %v", err)
 	}
 }
 

@@ -85,7 +85,7 @@ Waktu sekarang: %s
 
 Struktur JSON:
 {
-  "action": "create" | "list" | "delete" | "edit" | "chat",
+  "action": "create" | "list" | "delete" | "edit" | "query" | "chat",
   "items": [
     {"title": "string", "datetime": "RFC3339+07:00", "recurring": "daily|weekly|monthly|\"\"", "description": "konteks opsional"}
   ],
@@ -103,7 +103,9 @@ ATURAN PENTING:
 4. Nama ruangan/lokasi → masuk ke title, konteks/keterangan → masuk ke description
 5. action="edit" → edit_items berisi perubahan. Field new_* yang kosong = tidak diubah.
 6. action="delete": "hapus semua"→delete_all=true, "hapus 1-5"→delete_ids, "hapus meeting"→delete_query
-7. reply SELALU diisi Bahasa Indonesia ramah
+7. action="query" → PERTANYAAN tentang jadwal yang sudah ada. Contoh: "kapan ujian berikutnya?", "ada berapa jadwal minggu ini?", "besok ngapain aja?", "jadwal terdekat apa?". Hanya set action="query", field lain kosong.
+8. action="list" → minta lihat SEMUA reminder ("tampilkan reminder", "/list").
+9. reply SELALU diisi Bahasa Indonesia ramah
 
 Pesan pengguna: %s`,
 		nowStr,
@@ -112,6 +114,33 @@ Pesan pengguna: %s`,
 		now.AddDate(0, 0, 7).Format("02 January 2006"),
 		userMsg,
 	)
+}
+
+// AnswerQuery answers a natural-language question using the user's real reminder data.
+func (p *Parser) AnswerQuery(ctx context.Context, question, reminderContext string) (string, error) {
+	now := time.Now().In(p.loc).Format("Monday, 02 January 2006 15:04 MST")
+	prompt := fmt.Sprintf(`Kamu asisten pribadi. Jawab pertanyaan pengguna HANYA berdasar data jadwal di bawah. Jawab ringkas, ramah, Bahasa Indonesia, pakai emoji secukupnya. Jangan mengarang jadwal yang tidak ada.
+
+Waktu sekarang: %s
+
+DATA JADWAL PENGGUNA:
+%s
+
+PERTANYAAN: %s
+
+Jawaban (teks biasa, bukan JSON):`, now, reminderContext, question)
+
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	ans, err := callClaude(ctx, prompt)
+	if err != nil {
+		ans, err = p.callOllama(ctx, prompt)
+		if err != nil {
+			return "", err
+		}
+	}
+	return strings.TrimSpace(ans), nil
 }
 
 func callClaude(ctx context.Context, prompt string) (string, error) {

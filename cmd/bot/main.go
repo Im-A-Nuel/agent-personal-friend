@@ -103,7 +103,7 @@ func handleMessage(
 	// /start command
 	if msg.IsCommand() && msg.Command() == "start" {
 		reply(bot, msg.Chat.ID, fmt.Sprintf(
-			"Halo! Aku PF, asisten pribadimu 👋\nChat ID kamu: `%s`\n\nKirim pesan seperti:\n• \"Ingatkan aku meeting besok jam 9\"\n• \"Tampilkan reminder\"\n• \"Hapus reminder meeting\"",
+			"Halo! Aku PF, asisten pribadimu 👋\nChat ID kamu: `%s`\n\nKirim pesan seperti:\n• \"Ingatkan meeting besok jam 9, catatan: bawa laptop\"\n• \"Tampilkan reminder\"\n• \"Ubah reminder meeting jadi jam 3\"\n• \"Hapus reminder meeting\" / \"hapus semua\"\n• \"Kapan ujian berikutnya?\" / \"minggu ini ngapain aja?\"\n• 🎤 Kirim voice note juga bisa!",
 			chatID,
 		))
 		return
@@ -125,6 +125,8 @@ func handleMessage(
 		handleDelete(msg, bot, db, cal, chatID, parsed)
 	case "edit":
 		handleEdit(msg, bot, db, cal, loc, chatID, parsed)
+	case "query":
+		handleQuery(msg, bot, parser, db, loc, chatID, ctx, msg.Text)
 	default:
 		reply(bot, msg.Chat.ID, parsed.Reply)
 	}
@@ -147,6 +149,7 @@ func handleCreate(
 
 	var saved []string
 	var failed []string
+	var conflicts []string
 
 	for _, item := range items {
 		if item.Datetime == "" {
@@ -157,6 +160,18 @@ func handleCreate(
 		if err != nil {
 			failed = append(failed, fmt.Sprintf("• %s (format waktu salah)", item.Title))
 			continue
+		}
+
+		// Deteksi bentrok (±30 menit), abaikan yang identik (itu duplikat)
+		if confs, err := db.FindConflicts(chatID, t, 30*time.Minute); err == nil {
+			for _, c := range confs {
+				if c.Title == item.Title && c.RemindAt.Equal(t.UTC()) {
+					continue
+				}
+				conflicts = append(conflicts, fmt.Sprintf("• \"%s\" (%s) dekat dengan \"%s\" (%s)",
+					item.Title, t.In(loc).Format("15:04"),
+					c.Title, c.RemindAt.In(loc).Format("15:04")))
+			}
 		}
 
 		calendarID := ""
@@ -201,10 +216,58 @@ func handleCreate(
 			sb.WriteString(f + "\n")
 		}
 	}
-	if len(saved) == 0 && len(failed) == 0 {
+	if len(conflicts) > 0 {
+		sb.WriteString("\n⚠️ Jadwal berdekatan:\n")
+		for _, c := range conflicts {
+			sb.WriteString(c + "\n")
+		}
+	}
+	if len(saved) == 0 && len(failed) == 0 && len(conflicts) == 0 {
 		sb.WriteString("Semua reminder sudah ada sebelumnya, tidak ada yang ditambahkan.")
 	}
 	reply(bot, msg.Chat.ID, strings.TrimSpace(sb.String()))
+}
+
+func handleQuery(
+	msg *tgbotapi.Message,
+	bot *tgbotapi.BotAPI,
+	parser *nlu.Parser,
+	db *store.Store,
+	loc *time.Location,
+	chatID string,
+	ctx context.Context,
+	question string,
+) {
+	reminders, err := db.ListUpcoming(chatID)
+	if err != nil {
+		log.Printf("query list: %v", err)
+		reply(bot, msg.Chat.ID, "Gagal membaca jadwal.")
+		return
+	}
+	if len(reminders) == 0 {
+		reply(bot, msg.Chat.ID, "Belum ada jadwal yang tersimpan 😊")
+		return
+	}
+
+	var ctxBuf strings.Builder
+	for _, r := range reminders {
+		line := fmt.Sprintf("- %s | %s", r.RemindAt.In(loc).Format("Mon, 02 Jan 2006 15:04"), r.Title)
+		if r.Recurring != "" {
+			line += fmt.Sprintf(" (berulang %s)", r.Recurring)
+		}
+		if r.Description != "" {
+			line += fmt.Sprintf(" | catatan: %s", r.Description)
+		}
+		ctxBuf.WriteString(line + "\n")
+	}
+
+	answer, err := parser.AnswerQuery(ctx, question, ctxBuf.String())
+	if err != nil || answer == "" {
+		log.Printf("answer query: %v", err)
+		reply(bot, msg.Chat.ID, "Maaf, gagal menjawab pertanyaan. Coba lagi ya 🙏")
+		return
+	}
+	reply(bot, msg.Chat.ID, answer)
 }
 
 func handleEdit(
@@ -456,6 +519,8 @@ func handleVoice(
 		handleDelete(msg, bot, db, cal, chatID, parsed)
 	case "edit":
 		handleEdit(msg, bot, db, cal, loc, chatID, parsed)
+	case "query":
+		handleQuery(msg, bot, parser, db, loc, chatID, ctx, text)
 	default:
 		reply(bot, msg.Chat.ID, parsed.Reply)
 	}
