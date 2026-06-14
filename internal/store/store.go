@@ -59,6 +59,30 @@ func migrate(db *sql.DB) error {
 		SELECT MIN(id) FROM reminders GROUP BY chat_id, title, remind_at
 	)`)
 	_, _ = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_reminders_unique ON reminders(chat_id, title, remind_at)`)
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS tasks (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		chat_id     TEXT NOT NULL,
+		title       TEXT NOT NULL,
+		priority    TEXT DEFAULT 'normal',
+		done        INTEGER DEFAULT 0,
+		due         TEXT DEFAULT NULL,
+		created_at  TEXT DEFAULT (datetime('now'))
+	)`)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS notes (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		chat_id     TEXT NOT NULL,
+		content     TEXT NOT NULL,
+		tags        TEXT DEFAULT NULL,
+		created_at  TEXT DEFAULT (datetime('now'))
+	)`)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

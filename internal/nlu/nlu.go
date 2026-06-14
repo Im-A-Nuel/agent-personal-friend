@@ -27,13 +27,28 @@ type EditItem struct {
 	NewDescription string `json:"new_description"`
 }
 
+type TaskItem struct {
+	Title    string `json:"title"`
+	Priority string `json:"priority"` // low | normal | high
+	Due      string `json:"due"`      // RFC3339+07:00 opsional, atau ""
+}
+
+type NoteItem struct {
+	Content string `json:"content"`
+	Tags    string `json:"tags"` // koma-separated, opsional
+}
+
 type ParsedMessage struct {
-	Action      string         `json:"action"`     // create | list | delete | edit | chat
+	Action      string         `json:"action"`
 	Items       []ReminderItem `json:"items"`
 	EditItems   []EditItem     `json:"edit_items"`
 	DeleteQuery string         `json:"delete_query"`
 	DeleteIDs   []int64        `json:"delete_ids"`
 	DeleteAll   bool           `json:"delete_all"`
+	Tasks       []TaskItem     `json:"tasks"`
+	Notes       []NoteItem     `json:"notes"`
+	TaskQuery   string         `json:"task_query"` // target done/delete task
+	NoteQuery   string         `json:"note_query"` // target search/delete note
 	Reply       string         `json:"reply"`
 }
 
@@ -85,27 +100,39 @@ Waktu sekarang: %s
 
 Struktur JSON:
 {
-  "action": "create" | "list" | "delete" | "edit" | "query" | "chat",
-  "items": [
-    {"title": "string", "datetime": "RFC3339+07:00", "recurring": "daily|weekly|monthly|\"\"", "description": "konteks opsional"}
-  ],
-  "edit_items": [
-    {"query": "judul/ID lama", "new_title": "", "new_datetime": "", "new_recurring": "", "new_description": ""}
-  ],
+  "action": "create|list|delete|edit|query|chat|task_create|task_list|task_done|task_delete|note_create|note_list|note_search|note_delete",
+  "items": [{"title": "", "datetime": "RFC3339+07:00", "recurring": "daily|weekly|monthly|\"\"", "description": ""}],
+  "edit_items": [{"query": "", "new_title": "", "new_datetime": "", "new_recurring": "", "new_description": ""}],
   "delete_query": "", "delete_ids": [], "delete_all": false,
+  "tasks": [{"title": "", "priority": "low|normal|high", "due": "RFC3339+07:00 atau kosong"}],
+  "notes": [{"content": "", "tags": ""}],
+  "task_query": "", "note_query": "",
   "reply": "string Bahasa Indonesia ramah"
 }
 
-ATURAN PENTING:
-1. action="create" → items berisi SEMUA jadwal. Sertakan description jika user menyebut konteks/keterangan.
-2. datetime WAJIB format RFC3339 dengan offset +07:00, contoh: 2026-06-03T08:00:00+07:00
-3. Waktu relatif: "besok"=%s, "lusa"=%s, "minggu depan"=Senin %s
-4. Nama ruangan/lokasi → masuk ke title, konteks/keterangan → masuk ke description
-5. action="edit" → edit_items berisi perubahan. Field new_* yang kosong = tidak diubah.
-6. action="delete": "hapus semua"→delete_all=true, "hapus 1-5"→delete_ids, "hapus meeting"→delete_query
-7. action="query" → PERTANYAAN tentang jadwal yang sudah ada. Contoh: "kapan ujian berikutnya?", "ada berapa jadwal minggu ini?", "besok ngapain aja?", "jadwal terdekat apa?". Hanya set action="query", field lain kosong.
-8. action="list" → minta lihat SEMUA reminder ("tampilkan reminder", "/list").
-9. reply SELALU diisi Bahasa Indonesia ramah
+ATURAN — REMINDER (jadwal berwaktu, ada notifikasi):
+1. action="create" → items berisi SEMUA jadwal. datetime WAJIB RFC3339 offset +07:00, mis: 2026-06-03T08:00:00+07:00
+2. Waktu relatif: "besok"=%s, "lusa"=%s, "minggu depan"=Senin %s
+3. Lokasi/ruangan→title, keterangan→description
+4. action="edit" → edit_items. Field new_* kosong = tidak diubah.
+5. action="delete": "hapus semua"→delete_all=true, "hapus 1-5"→delete_ids, "hapus meeting"→delete_query
+6. action="query" → PERTANYAAN tentang jadwal. "kapan ujian?", "minggu ini ngapain?"
+7. action="list" → lihat semua reminder.
+
+ATURAN — TUGAS/TODO (hal yang harus dikerjakan, TANPA jam pasti):
+8. action="task_create" → tasks[]. "tugasku: kerjakan laporan", "todo beli buku, prioritas tinggi". due opsional.
+9. action="task_list" → "tugasku apa aja?", "lihat todo"
+10. action="task_done" → task_query. "tugas laporan selesai", "selesaikan todo 2"
+11. action="task_delete" → task_query. "hapus tugas laporan"
+
+ATURAN — CATATAN/MEMO (informasi untuk diingat):
+12. action="note_create" → notes[]. "catat: ide bikin app X", "memo nomor wifi 12345". tags opsional.
+13. action="note_list" → "catatanku apa aja?", "lihat memo"
+14. action="note_search" → note_query. "cari catatan wifi", "memo tentang ide"
+15. action="note_delete" → note_query. "hapus catatan wifi"
+
+BEDAKAN: reminder=ada jam+notifikasi. task=harus dikerjakan tanpa jam pasti. note=info disimpan.
+16. reply SELALU diisi Bahasa Indonesia ramah.
 
 Pesan pengguna: %s`,
 		nowStr,
