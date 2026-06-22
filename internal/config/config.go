@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 )
@@ -14,6 +15,10 @@ type Config struct {
 	WhisperModel     string
 	OllamaBaseURL    string
 	OllamaModel      string
+	GitHubToken      string
+	GitHubUser       string
+	GitHubEmail      string
+	RepoWorkDir      string
 }
 
 func Load() (*Config, error) {
@@ -41,6 +46,21 @@ func Load() (*Config, error) {
 		ollamaModel = "llama3.2"
 	}
 
+	repoWorkDir := os.Getenv("REPO_WORK_DIR")
+	if repoWorkDir == "" {
+		repoWorkDir = filepath.Join(os.TempDir(), "pf-repos")
+	}
+
+	gitUser := os.Getenv("GITHUB_USER")
+	if gitUser == "" {
+		gitUser = "PF Bot"
+	}
+
+	gitEmail := os.Getenv("GITHUB_EMAIL")
+	if gitEmail == "" {
+		gitEmail = "pf-bot@users.noreply.github.com"
+	}
+
 	return &Config{
 		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 		TelegramChatID:   os.Getenv("TELEGRAM_CHAT_ID"),
@@ -49,5 +69,9 @@ func Load() (*Config, error) {
 		WhisperModel:     whisperModel,
 		OllamaBaseURL:    ollamaURL,
 		OllamaModel:      ollamaModel,
+		GitHubToken:      os.Getenv("GITHUB_TOKEN"),
+		GitHubUser:       gitUser,
+		GitHubEmail:      gitEmail,
+		RepoWorkDir:      repoWorkDir,
 	}, nil
 }

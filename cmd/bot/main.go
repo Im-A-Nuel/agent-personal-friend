@@ -107,6 +107,7 @@ func handleMessage(
 				"📅 *Jadwal/Reminder*\n• \"Ingatkan meeting besok jam 9, catatan: bawa laptop\"\n• \"Tampilkan reminder\" / \"hapus semua\"\n• \"Kapan ujian berikutnya?\"\n\n"+
 				"📝 *Tugas/Todo*\n• \"Todo: kerjakan laporan, prioritas tinggi\"\n• \"Tugasku apa aja?\"\n• \"Tugas laporan selesai\"\n\n"+
 				"📒 *Catatan/Memo*\n• \"Catat: ide bikin app X\"\n• \"Catatanku apa aja?\" / \"cari catatan wifi\"\n\n"+
+				"🐙 *GitHub*\n• \"Buat repo namanya myapp, private\"\n• \"Di repo myapp, tambahkan endpoint /health\"\n• \"Fix conflict PR 3 di repo myapp\"\n\n"+
 				"🎤 Voice note juga bisa!",
 			chatID,
 		))
@@ -147,6 +148,12 @@ func handleMessage(
 		handleNoteSearch(msg, bot, db, loc, chatID, parsed)
 	case "note_delete":
 		handleNoteDelete(msg, bot, db, chatID, parsed)
+	case "repo_create":
+		handleRepoCreate(msg, bot, cfg, ctx, parsed)
+	case "repo_work":
+		handleRepoWork(msg, bot, cfg, ctx, parsed)
+	case "repo_resolve":
+		handleRepoResolve(msg, bot, cfg, ctx, parsed)
 	default:
 		reply(bot, msg.Chat.ID, parsed.Reply)
 	}
@@ -557,6 +564,12 @@ func handleVoice(
 		handleNoteSearch(msg, bot, db, loc, chatID, parsed)
 	case "note_delete":
 		handleNoteDelete(msg, bot, db, chatID, parsed)
+	case "repo_create":
+		handleRepoCreate(msg, bot, cfg, ctx, parsed)
+	case "repo_work":
+		handleRepoWork(msg, bot, cfg, ctx, parsed)
+	case "repo_resolve":
+		handleRepoResolve(msg, bot, cfg, ctx, parsed)
 	default:
 		reply(bot, msg.Chat.ID, parsed.Reply)
 	}

@@ -49,7 +49,17 @@ type ParsedMessage struct {
 	Notes       []NoteItem     `json:"notes"`
 	TaskQuery   string         `json:"task_query"` // target done/delete task
 	NoteQuery   string         `json:"note_query"` // target search/delete note
-	Reply       string         `json:"reply"`
+
+	// GitHub
+	RepoName    string `json:"repo_name"`    // repo_create
+	RepoDesc    string `json:"repo_desc"`    // repo_create
+	RepoPrivate bool   `json:"repo_private"` // repo_create
+	RepoOrg     string `json:"repo_org"`     // repo_create, "" = pribadi
+	RepoTarget  string `json:"repo_target"`  // repo_work/repo_resolve: "owner/repo" atau "repo"
+	RepoTask    string `json:"repo_task"`    // repo_work: instruksi yang dikerjakan
+	RepoPR      int    `json:"repo_pr"`      // repo_resolve: nomor pull request
+
+	Reply string `json:"reply"`
 }
 
 type Parser struct {
@@ -100,13 +110,15 @@ Waktu sekarang: %s
 
 Struktur JSON:
 {
-  "action": "create|list|delete|edit|query|chat|task_create|task_list|task_done|task_delete|note_create|note_list|note_search|note_delete",
+  "action": "create|list|delete|edit|query|chat|task_create|task_list|task_done|task_delete|note_create|note_list|note_search|note_delete|repo_create|repo_work",
   "items": [{"title": "", "datetime": "RFC3339+07:00", "recurring": "daily|weekly|monthly|\"\"", "description": ""}],
   "edit_items": [{"query": "", "new_title": "", "new_datetime": "", "new_recurring": "", "new_description": ""}],
   "delete_query": "", "delete_ids": [], "delete_all": false,
   "tasks": [{"title": "", "priority": "low|normal|high", "due": "RFC3339+07:00 atau kosong"}],
   "notes": [{"content": "", "tags": ""}],
   "task_query": "", "note_query": "",
+  "repo_name": "", "repo_desc": "", "repo_private": false, "repo_org": "",
+  "repo_target": "", "repo_task": "", "repo_pr": 0,
   "reply": "string Bahasa Indonesia ramah"
 }
 
@@ -132,7 +144,18 @@ ATURAN — CATATAN/MEMO (informasi untuk diingat):
 15. action="note_delete" → note_query. "hapus catatan wifi"
 
 BEDAKAN: reminder=ada jam+notifikasi. task=harus dikerjakan tanpa jam pasti. note=info disimpan.
-16. reply SELALU diisi Bahasa Indonesia ramah.
+
+ATURAN — GITHUB:
+16. action="repo_create" → buat repo baru. "buat repo namanya X", "bikin repository private Y", "buat repo Z di organisasi ABC".
+    - repo_name=nama repo, repo_desc=deskripsi (opsional), repo_org=nama org jika disebut (kosong=repo pribadi)
+    - repo_private: WAJIB true jika ada kata "private"/"privat"/"rahasia"/"tertutup". false jika "public"/"publik" atau tidak disebut.
+    - Contoh: "buat repo test, private" → {repo_name:"test", repo_private:true}
+    - Contoh: "buat repo blog" → {repo_name:"blog", repo_private:false}
+17. action="repo_work" → kerjakan coding di repo. "di repo X kerjakan: tambah fitur login", "perbaiki bug di repo owner/Y", "tambahkan endpoint di repo Z".
+    - repo_target=nama repo (boleh "owner/repo" atau "repo" saja), repo_task=instruksi lengkap yang harus dikerjakan
+18. action="repo_resolve" → selesaikan merge conflict pada pull request. "fix conflict PR 3 di repo X", "selesaikan conflict pull request #5 repo Y", "resolve konflik PR 2 repo Z".
+    - repo_target=nama repo, repo_pr=nomor PR (angka saja, tanpa #)
+19. reply SELALU diisi Bahasa Indonesia ramah.
 
 Pesan pengguna: %s`,
 		nowStr,
